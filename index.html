@@ -310,6 +310,11 @@ input[type=text],select{
   <div class="sheet">
     <h2 id="smTitle">Punt nou</h2>
     <p class="sub" id="smCoords">—</p>
+    <div id="smParkNote" class="note" style="display:none"></div>
+    <div style="font-size:11px;color:var(--steel);margin-top:-4px;margin-bottom:10px">
+      Comprovació automàtica de zones protegides via OpenStreetMap. Verifica sempre al mapa oficial
+      <a href="https://agricultura.gencat.cat/ca/ambits/pesca/pesca-recreativa/mapa-onpescar/" target="_blank" rel="noopener">OnPescar</a>.
+    </div>
 
     <label for="smName">Nom</label>
     <input type="text" id="smName" placeholder="p. ex. Escullera de Llevant" autocomplete="off">
@@ -935,6 +940,7 @@ function renderDetail(){
     ${S.gearNote ? `<div class="note">${esc(S.gearNote)}</div>`:''}
     ${S.speculative ? `<div class="note">Espècie amb poca literatura científica específica per al Mediterrani: el model es basa en comportament general de la família i en l'observació de camp, no en dades experimentals locals.</div>`:''}
     ${sp.note?`<div class="note">${esc(sp.note)}</div>`:''}
+    ${sp.parkNote?`<div class="note">${esc(sp.parkNote)}</div>`:''}
 
     <h3 class="sec">Condicions</h3>
     <div class="readout">
@@ -1087,18 +1093,62 @@ function setAddMode(on){
 }
 
 /* --- modal de punt --- */
-let smBearing=135, smBottom='mixed', smFeat={posidonia:false,channel:false,harborLight:false}, smLat=0, smLon=0;
+let smBearing=135, smBottom='mixed', smFeat={posidonia:false,channel:false,harborLight:false}, smLat=0, smLon=0, smParkNote=null;
+
+function setParkNoteUI(text, pending){
+  const el=$('#smParkNote');
+  if(pending){ el.textContent='Comprovant si el punt cau en zona protegida…'; el.style.display='block'; return; }
+  if(text){ el.textContent=text; el.style.display='block'; }
+  else { el.style.display='none'; el.textContent=''; }
+}
+
+/* Consulta OpenStreetMap (Overpass) per saber si un punt cau dins d'un parc
+   natural, reserva marina o espai protegit similar (Catalunya i Balears inclosos,
+   ja que la font és mundial). Retorna:
+   - un string amb el nom si es troba una zona protegida
+   - '' (buit) si la consulta ha anat bé i NO hi ha cap zona protegida
+   - null si la consulta ha fallat i no es pot saber (per exemple sense xarxa) */
+async function checkProtectedArea(lat, lon){
+  const q = `[out:json][timeout:15];is_in(${lat},${lon})->.a;.a out tags;`;
+  const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q);
+  try{
+    const res = await fetch(url);
+    if(!res.ok) return null;
+    const data = await res.json();
+    const hits = (data.elements||[]).filter(el=>{
+      const t=el.tags||{};
+      if(!t.name) return false;
+      return t.boundary==='protected_area' || t.boundary==='national_park'
+          || t.leisure==='nature_reserve' || !!t.protect_class;
+    });
+    if(!hits.length) return '';
+    const names=[...new Set(hits.map(h=>h.tags.name))].slice(0,2);
+    return names.join(' / ');
+  }catch(e){ return null; }
+}
+
 function openSpotModal(spot, lat, lon){
   state.editing = spot || null;
   smLat = spot? spot.lat : lat; smLon = spot? spot.lon : lon;
   smBottom = spot? spot.bottom : 'mixed';
   smBearing = spot? spot.bearing : suggestBearing(smLat, smLon);
   smFeat = {posidonia: !!spot?.posidonia, channel: !!spot?.channel, harborLight: !!spot?.harborLight};
+  smParkNote = spot?.parkNote || null;
   $('#smTitle').textContent = spot? 'Edita el punt' : 'Punt nou';
   $('#smCoords').textContent = `${smLat.toFixed(4)}, ${smLon.toFixed(4)}`;
   $('#smName').value = spot? spot.name : '';
   $('#smDelete').style.display = spot? 'block':'none';
   syncModal(); $('#spotModal').classList.add('show'); $('#smName').focus();
+
+  setParkNoteUI(null, true);
+  const lookupLat=smLat, lookupLon=smLon;
+  checkProtectedArea(lookupLat, lookupLon).then(result=>{
+    // si mentrestant s'ha tancat el modal o canviat de punt, no facis res
+    if(smLat!==lookupLat || smLon!==lookupLon) return;
+    if(result===null){ setParkNoteUI(smParkNote); return; } // no s'ha pogut comprovar: conserva el que ja hi hagués
+    smParkNote = result ? `Aquest punt sembla caure dins de ${result}. Revisa la zonificació i la normativa de pesca abans d'anar-hi.` : null;
+    setParkNoteUI(smParkNote);
+  });
 }
 // suggereix l'orientació copiant el punt conegut més proper
 function suggestBearing(lat,lon){
@@ -1202,11 +1252,11 @@ async function saveSpot(){
   const name=$('#smName').value.trim() || 'Punt sense nom';
   if(state.editing){
     Object.assign(state.editing,{name, bearing:smBearing, bottom:smBottom,
-      posidonia:smFeat.posidonia, channel:smFeat.channel, harborLight:smFeat.harborLight});
+      posidonia:smFeat.posidonia, channel:smFeat.channel, harborLight:smFeat.harborLight, parkNote:smParkNote});
   }else{
     const sp={id:'u'+Date.now().toString(36), name, area:'', lat:smLat, lon:smLon,
       bearing:smBearing, bottom:smBottom, posidonia:smFeat.posidonia, channel:smFeat.channel,
-      harborLight:smFeat.harborLight, custom:true};
+      harborLight:smFeat.harborLight, parkNote:smParkNote, custom:true};
     state.spots.push(sp); state.sel=sp.id;
   }
   $('#spotModal').classList.remove('show');
@@ -1225,8 +1275,8 @@ async function deleteSpot(){
   switchTab('rank');
 }
 async function persistCustom(){
-  const custom=state.spots.filter(s=>s.custom).map(({id,name,lat,lon,bearing,bottom,posidonia,channel,harborLight})=>
-    ({id,name,lat,lon,bearing,bottom,posidonia,channel,harborLight}));
+  const custom=state.spots.filter(s=>s.custom).map(({id,name,lat,lon,bearing,bottom,posidonia,channel,harborLight,parkNote})=>
+    ({id,name,lat,lon,bearing,bottom,posidonia,channel,harborLight,parkNote}));
   await saveStore('spots:custom', custom);
 }
 
