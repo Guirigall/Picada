@@ -1,0 +1,17 @@
+{
+  "name": "Marejol · pesca des de costa",
+  "short_name": "Marejol",
+  "description": "Puntuació de pesca des de costa al Mediterrani, per espècie i per punt.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#08181F",
+  "theme_color": "#08181F",
+  "lang": "ca",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

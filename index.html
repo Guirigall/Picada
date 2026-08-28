@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Marejol · pesca des de costa al Mediterrani</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#08181F">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Marejol">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#08181F;
+  --deep:#0D2530;
+  --panel:#12303D;
+  --panel-2:#173B4A;
+  --line:#23505F;
+  --foam:#E6EFEC;
+  --steel:#8AA6B2;
+  --buoy:#E8A33D;
+  --posidonia:#3E8C6E;
+  --alarm:#D9534F;
+
+  --s1:#C0453F; --s2:#D2703A; --s3:#D9A23C; --s4:#93B85C; --s5:#3FA97A; --s6:#2FD08A;
+
+  --display:'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --body:'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --mono:'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--ink);color:var(--foam);
+  font-family:var(--body);font-size:14px;line-height:1.45;
+  -webkit-font-smoothing:antialiased;overscroll-behavior:none;
+}
+button{font-family:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--buoy);outline-offset:2px}
+
+/* ---------- shell ---------- */
+.app{display:flex;flex-direction:column;height:100dvh}
+header{
+  display:flex;align-items:center;gap:18px;padding:10px 16px;
+  background:linear-gradient(180deg,#0B222C,#08181F);
+  border-bottom:1px solid var(--line);flex-wrap:wrap;
+}
+.brand{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+.brand h1{
+  font-family:var(--display);font-weight:700;font-size:21px;letter-spacing:-.02em;
+  margin:0;color:var(--foam);
+}
+.brand h1 span{color:var(--buoy)}
+.brand p{margin:0;font-size:11px;color:var(--steel);letter-spacing:.06em;text-transform:uppercase}
+
+.species{display:flex;flex-wrap:wrap;gap:4px;background:var(--deep);padding:3px;border-radius:9px;border:1px solid var(--line);max-width:100%}
+.species button{
+  border:0;background:transparent;padding:6px 11px;border-radius:6px;cursor:pointer;
+  font-size:12.5px;font-weight:500;color:var(--steel);transition:background .15s,color .15s;white-space:nowrap;
+}
+.species button[aria-pressed="true"]{background:var(--buoy);color:#12242B;font-weight:600}
+
+.hdr-actions{display:flex;gap:8px;align-items:center}
+.btn{
+  border:1px solid var(--line);background:var(--deep);border-radius:8px;
+  padding:7px 12px;font-size:13px;cursor:pointer;transition:border-color .15s,background .15s;
+}
+.btn:hover{border-color:var(--buoy)}
+.btn.on{background:var(--buoy);color:#12242B;border-color:var(--buoy);font-weight:600}
+.btn.ghost{background:transparent}
+
+/* ---------- banners ---------- */
+.banner{
+  padding:7px 16px;font-size:12.5px;display:none;align-items:center;gap:8px;
+  border-bottom:1px solid var(--line);
+}
+.banner.show{display:flex}
+.banner.demo{background:#3A2E12;color:#F0CE8A}
+.banner.err{background:#3A1B1A;color:#F0A9A6}
+
+/* ---------- layout ---------- */
+main{flex:1;display:flex;min-height:0}
+#map{flex:1;min-width:0;background:#0A1E28}
+.leaflet-container{background:#0A1E28;font-family:var(--body)}
+aside{
+  width:400px;flex-shrink:0;border-left:1px solid var(--line);
+  background:var(--deep);display:flex;flex-direction:column;min-height:0;
+}
+.tabs{display:flex;border-bottom:1px solid var(--line);flex-shrink:0}
+.tabs button{
+  flex:1;border:0;background:transparent;padding:11px;cursor:pointer;font-size:13px;
+  color:var(--steel);border-bottom:2px solid transparent;font-weight:500;
+}
+.tabs button[aria-selected="true"]{color:var(--foam);border-bottom-color:var(--buoy)}
+.tabpanel{flex:1;overflow-y:auto;padding:14px;display:none}
+.tabpanel.active{display:block}
+
+/* ---------- time scrubber ---------- */
+.timebar{
+  display:flex;align-items:center;gap:12px;padding:8px 16px;
+  background:var(--deep);border-bottom:1px solid var(--line);flex-shrink:0;
+}
+.timebar .when{
+  font-family:var(--mono);font-size:13px;font-weight:500;white-space:nowrap;
+  min-width:170px;color:var(--foam);
+}
+.timebar input[type=range]{flex:1;accent-color:var(--buoy);min-width:80px}
+
+/* ---------- ranking list ---------- */
+.rank-item{
+  display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:9px;
+  cursor:pointer;border:1px solid transparent;transition:background .12s;
+}
+.rank-item:hover{background:var(--panel)}
+.rank-item.sel{background:var(--panel);border-color:var(--line)}
+.pill{
+  font-family:var(--mono);font-weight:600;font-size:14px;width:40px;height:34px;
+  border-radius:7px;display:grid;place-items:center;flex-shrink:0;color:#0B1A21;
+}
+.rank-name{font-size:13.5px;font-weight:500;line-height:1.25}
+.rank-meta{font-size:11.5px;color:var(--steel);font-family:var(--mono)}
+.rank-badge{margin-left:auto;font-size:10px;color:var(--steel);text-transform:uppercase;letter-spacing:.05em}
+
+/* ---------- detail ---------- */
+.d-head h2{font-family:var(--display);font-size:19px;margin:0 0 3px;letter-spacing:-.01em}
+.tagrow{display:flex;gap:5px;flex-wrap:wrap;margin:7px 0 0}
+.tag{
+  font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;padding:3px 7px;
+  border-radius:5px;background:var(--panel);border:1px solid var(--line);color:var(--steel);
+}
+.tag.pos{color:#8FD3B6;border-color:#2C6A55}
+.tag.warn{color:#F0CE8A;border-color:#6B5320}
+
+.gauge{display:flex;align-items:center;gap:16px;margin:16px 0 6px}
+.gauge-num{font-family:var(--display);font-size:52px;font-weight:700;line-height:.9;letter-spacing:-.03em}
+.gauge-num small{font-size:19px;color:var(--steel);font-weight:500}
+.verdict{font-size:13.5px;line-height:1.4}
+.verdict b{display:block;font-size:15px;margin-bottom:2px}
+
+.note{
+  font-size:12.5px;background:#33280F;border:1px solid #6B5320;color:#F0CE8A;
+  padding:8px 10px;border-radius:8px;margin:10px 0;
+}
+.note.danger{background:#3A1B1A;border-color:#7A3330;color:#F0A9A6}
+
+h3.sec{
+  font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--steel);
+  margin:20px 0 9px;font-weight:600;display:flex;align-items:center;gap:8px;
+}
+h3.sec::after{content:"";flex:1;height:1px;background:var(--line)}
+
+.readout{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.cell{background:var(--panel);padding:8px 10px}
+.cell .k{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--steel)}
+.cell .v{font-family:var(--mono);font-size:15px;font-weight:500;margin-top:1px}
+.cell .v small{font-size:11px;color:var(--steel);font-weight:400}
+
+.fbar{margin-bottom:8px}
+.fbar .lbl{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px}
+.fbar .lbl span:last-child{font-family:var(--mono);color:var(--steel)}
+.track{height:6px;background:var(--panel-2);border-radius:99px;overflow:hidden;position:relative}
+.fill{height:100%;border-radius:99px;transition:width .3s}
+.wgt{position:absolute;top:-1px;bottom:-1px;width:1px;background:rgba(230,239,236,.35)}
+
+/* ---------- ribbon (signature) ---------- */
+.ribbon-wrap{position:relative;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--panel)}
+canvas.ribbon{display:block;width:100%;height:104px;cursor:crosshair}
+.ribbon-legend{display:flex;gap:12px;font-size:10.5px;color:var(--steel);margin-top:6px;flex-wrap:wrap}
+.ribbon-legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+
+.window{
+  display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:8px;
+  background:var(--panel);border:1px solid var(--line);margin-bottom:6px;cursor:pointer;
+}
+.window:hover{border-color:var(--buoy)}
+.window .w-when{font-family:var(--mono);font-size:12.5px}
+.window .w-why{font-size:11.5px;color:var(--steel);margin-left:auto;text-align:right}
+
+/* ---------- forms / modal ---------- */
+.modal{
+  position:fixed;inset:0;background:rgba(4,12,16,.72);display:none;
+  place-items:center;padding:16px;z-index:1200;backdrop-filter:blur(3px);
+}
+.modal.show{display:grid}
+.sheet{
+  background:var(--deep);border:1px solid var(--line);border-radius:14px;
+  width:min(430px,100%);max-height:88dvh;overflow-y:auto;padding:18px;
+}
+.sheet h2{font-family:var(--display);font-size:18px;margin:0 0 4px}
+.sheet p.sub{margin:0 0 16px;font-size:12.5px;color:var(--steel)}
+label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--steel);margin:12px 0 5px}
+input[type=text],select{
+  width:100%;background:var(--panel);border:1px solid var(--line);color:var(--foam);
+  border-radius:8px;padding:9px 10px;font-family:inherit;font-size:14px;
+}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{
+  border:1px solid var(--line);background:var(--panel);border-radius:7px;padding:7px 11px;
+  font-size:13px;cursor:pointer;
+}
+.chip[aria-pressed="true"]{background:var(--buoy);color:#12242B;border-color:var(--buoy);font-weight:600}
+.compass{display:flex;align-items:center;gap:14px;margin-top:6px}
+.compass canvas{width:96px;height:96px;cursor:pointer;touch-action:none;border-radius:50%}
+.compass .cinfo{font-size:12px;color:var(--steel);line-height:1.5}
+.compass .cinfo b{color:var(--foam);font-family:var(--mono);font-size:15px;display:block}
+.sheet-actions{display:flex;gap:8px;margin-top:20px}
+.sheet-actions .btn{flex:1;justify-content:center;text-align:center;padding:10px}
+
+/* ---------- map bits ---------- */
+.mk{
+  width:34px;height:34px;border-radius:9px;display:grid;place-items:center;
+  font-family:var(--mono);font-weight:600;font-size:13px;color:#0B1A21;
+  border:2px solid rgba(8,24,31,.55);box-shadow:0 2px 8px rgba(0,0,0,.45);
+}
+.mk.sel{border-color:var(--foam);transform:scale(1.14)}
+.mk.custom{border-radius:50%}
+.addhint{
+  position:absolute;left:50%;transform:translateX(-50%);bottom:18px;z-index:800;
+  background:var(--buoy);color:#12242B;padding:8px 15px;border-radius:99px;
+  font-size:13px;font-weight:600;display:none;box-shadow:0 4px 14px rgba(0,0,0,.4);
+}
+.addhint.show{display:block}
+.leaflet-control-attribution{background:rgba(8,24,31,.75)!important;color:var(--steel)!important;font-size:9.5px!important}
+.leaflet-control-attribution a{color:var(--steel)!important}
+.leaflet-bar a{background:var(--panel)!important;color:var(--foam)!important;border-color:var(--line)!important}
+.tiles-sat{filter:brightness(.82) saturate(.92) contrast(1.04)}
+.tiles-nautic{filter:brightness(.58) saturate(1.25) contrast(1.08)}
+.tiles-street{filter:invert(1) hue-rotate(185deg) brightness(.92) contrast(.88) saturate(.62)}
+.leaflet-control-layers{
+  background:var(--deep)!important;border:1px solid var(--line)!important;
+  color:var(--foam)!important;border-radius:8px!important;
+}
+.leaflet-control-layers-toggle{background-color:var(--panel)!important}
+.leaflet-control-layers label{font-size:13px;text-transform:none;letter-spacing:0;color:var(--foam);margin:2px 0}
+
+.empty{color:var(--steel);font-size:13px;padding:26px 8px;text-align:center;line-height:1.6}
+.foot{font-size:11px;color:var(--steel);line-height:1.6;margin-top:22px;padding-top:12px;border-top:1px solid var(--line)}
+.foot a{color:var(--buoy)}
+
+@media (max-width:900px){
+  main{flex-direction:column}
+  #map{height:38dvh;flex:none}
+  aside{width:100%;border-left:0;border-top:1px solid var(--line);flex:1}
+  header{gap:10px;padding:9px 12px}
+  .brand p{display:none}
+  .timebar .when{min-width:0;font-size:12px}
+  .gauge-num{font-size:44px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <h1>Marejol<span>.</span></h1>
+      <p>Pesca des de costa · Mediterrani</p>
+    </div>
+    <div class="species" role="group" aria-label="Espècie objectiu">
+      <button data-sp="dorada" aria-pressed="true">Orada</button>
+      <button data-sp="sarg" aria-pressed="false">Sarg</button>
+      <button data-sp="llobarro" aria-pressed="false">Llobarro</button>
+      <button data-sp="mabre" aria-pressed="false">Mabre</button>
+      <button data-sp="oblada" aria-pressed="false">Oblada</button>
+      <button data-sp="boga" aria-pressed="false">Boga</button>
+      <button data-sp="corball" aria-pressed="false">Corball</button>
+      <button data-sp="lliri" aria-pressed="false">Lliri</button>
+    </div>
+    <div class="hdr-actions">
+      <button class="btn" id="btnAdd">+ Punt</button>
+      <button class="btn ghost" id="btnReload" title="Torna a carregar les previsions">↻</button>
+    </div>
+  </header>
+
+  <div class="banner demo" id="bnDemo">
+    <strong>Dades de demostració.</strong> No s'ha pogut contactar amb Open-Meteo, així que les condicions són simulades. Prem ↻ per tornar-ho a provar.
+  </div>
+  <div class="banner err" id="bnErr"></div>
+
+  <div class="timebar">
+    <span class="when" id="whenLbl">—</span>
+    <input type="range" id="timeSlider" min="0" max="167" value="0" step="1" aria-label="Hora de la previsió">
+    <button class="btn ghost" id="btnNow">Ara</button>
+  </div>
+
+  <main>
+    <div id="map" style="position:relative">
+      <div class="addhint" id="addHint">Toca el mapa on vols el punt nou</div>
+    </div>
+    <aside>
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="rank">Rànquing</button>
+        <button role="tab" aria-selected="false" data-tab="detail">Detall</button>
+      </div>
+      <div class="tabpanel active" id="tab-rank"></div>
+      <div class="tabpanel" id="tab-detail"></div>
+    </aside>
+  </main>
+</div>
+
+<!-- add / edit spot -->
+<div class="modal" id="spotModal">
+  <div class="sheet">
+    <h2 id="smTitle">Punt nou</h2>
+    <p class="sub" id="smCoords">—</p>
+
+    <label for="smName">Nom</label>
+    <input type="text" id="smName" placeholder="p. ex. Escullera de Llevant" autocomplete="off">
+
+    <label>Tipus de fons</label>
+    <div class="chips" id="smBottom">
+      <button class="chip" data-v="sand">Sorra</button>
+      <button class="chip" data-v="mixed">Mixt</button>
+      <button class="chip" data-v="rock">Roca</button>
+    </div>
+
+    <label>Orientació de la costa · cap on mira el mar</label>
+    <div class="compass">
+      <canvas id="smCompass" width="192" height="192" aria-label="Selector d'orientació"></canvas>
+      <div class="cinfo">
+        <b id="smBearingTxt">135° SE</b>
+        Arrossega l'agulla cap a mar obert des del teu punt.
+        Serveix per saber quan el vent t'entra de cara.
+      </div>
+    </div>
+
+    <label>Característiques</label>
+    <div class="chips" id="smFeat">
+      <button class="chip" data-v="posidonia">Posidònia a prop</button>
+      <button class="chip" data-v="channel">Canal o desembocadura</button>
+    </div>
+
+    <div class="sheet-actions">
+      <button class="btn" id="smCancel">Cancel·la</button>
+      <button class="btn ghost" id="smDelete" style="display:none;color:#F0A9A6;border-color:#7A3330">Elimina</button>
+      <button class="btn on" id="smSave">Desa el punt</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* =======================================================================
+   MAREJOL — puntuació de pesca des de costa al Mediterrani occidental
+   Model: vent (onshore/offshore) + energia i organització de l'onatge +
+   remoguda/terbolesa + finestra de llum + finestres de transició +
+   tendència baromètrica + idoneïtat tèrmica + (marginal) lluna.
+   La marea NO hi entra: amplitud típica 2–10 cm a la costa catalana.
+   ======================================================================= */
+
+/* ---------------------------- 1. SPOTS ---------------------------- */
+// bearing = azimut de la normal a la costa apuntant cap a mar obert
+const BUILTIN = [
+  {id:'falconera', name:'Punta Falconera', area:'Roses', lat:42.2327, lon:3.2183, bearing:140, bottom:'rock', posidonia:false, channel:false, note:'Dins el PN Cap de Creus: a la reserva natural parcial només s\'hi pot pescar amb canya.'},
+  {id:'jugadora',  name:'Cala Jugadora',   area:'Cap de Creus', lat:42.3186, lon:3.3175, bearing:95,  bottom:'rock', posidonia:false, channel:false, note:'Accés llarg i exposat a la tramuntana. Comprova la zonificació del parc.'},
+  {id:'montgo',    name:'Punta Montgó',    area:"L'Escala", lat:42.1150, lon:3.1600, bearing:100, bottom:'rock', posidonia:true,  channel:false},
+  {id:'sariera',   name:'Sa Riera',        area:'Begur', lat:41.9670, lon:3.2240, bearing:35,  bottom:'mixed', posidonia:true, channel:false, note:'La reserva de Ses Negres és aquí al costat i no s\'hi pesca. Verifica el límit a OnPescar.'},
+  {id:'estreta',   name:'Cala Estreta',    area:'Palamós', lat:41.8657, lon:3.1732, bearing:130, bottom:'rock', posidonia:true, channel:false},
+  {id:'valentina', name:'Torre Valentina', area:'Calonge', lat:41.8374, lon:3.0928, bearing:110, bottom:'mixed', posidonia:true, channel:false},
+  {id:'morisca',   name:'Cala Morisca',    area:'Tossa de Mar', lat:41.7053, lon:2.8966, bearing:145, bottom:'rock', posidonia:false, channel:false},
+  {id:'tordera',   name:'Desembocadura de la Tordera', area:'Blanes / Malgrat de Mar', lat:41.6470, lon:2.7830, bearing:145, bottom:'sand', posidonia:false, channel:true},
+  {id:'palomera',  name:'Sa Palomera',     area:'Blanes', lat:41.6720, lon:2.7900, bearing:175, bottom:'mixed', posidonia:false, channel:false},
+  {id:'besos',     name:'Desembocadura del Besòs', area:'Sant Adrià', lat:41.4180, lon:2.2300, bearing:135, bottom:'sand', posidonia:false, channel:true, note:'Vigila els límits de la zona portuària i les zones no permeses.'},
+  {id:'garraf',    name:'Roques del Garraf', area:'Sitges', lat:41.2539, lon:1.9036, bearing:145, bottom:'mixed', posidonia:false, channel:false, note:'Zona molt batuda pels pescadors. La pesca dins el port de l\'Aiguadolç no està permesa.'},
+  {id:'llarga-vng',name:'Platja Llarga',   area:'Vilanova', lat:41.2100, lon:1.7100, bearing:150, bottom:'sand', posidonia:false, channel:false},
+  {id:'mora',      name:'Punta de la Móra', area:'Tamarit', lat:41.1243, lon:1.3433, bearing:140, bottom:'mixed', posidonia:true, channel:false},
+  {id:'crancs',    name:'Cala Crancs',     area:'Cap de Salou', lat:41.0566, lon:1.1678, bearing:170, bottom:'rock', posidonia:false, channel:false},
+  {id:'regueral',  name:'El Regueral',     area:'Cambrils', lat:41.0620, lon:1.0450, bearing:150, bottom:'sand', posidonia:false, channel:true},
+  {id:'calafat',   name:'Roques de Calafat', area:"L'Ametlla de Mar", lat:40.9222, lon:0.8412, bearing:120, bottom:'rock', posidonia:true, channel:false},
+  {id:'fangar',    name:'Punta del Fangar', area:'Delta de l\'Ebre', lat:40.7700, lon:0.7500, bearing:45, bottom:'sand', posidonia:false, channel:true, note:'Parc Natural del Delta: hi ha restriccions d\'accés i de pesca segons la zona i l\'època.'},
+  {id:'alcanar',   name:'Les Cases d\'Alcanar', area:'Alcanar', lat:40.5514, lon:0.5297, bearing:125, bottom:'mixed', posidonia:true, channel:false}
+];
+
+/* ------------------------- 2. MODEL D'ESPÈCIE ------------------------- */
+const SPECIES = {
+  dorada: {
+    label:'Orada', latin:'Sparus aurata',
+    hs:[0.40,1.00], tp:[5,8],
+    stir:0.50, stirW:0.30,            // remoguda òptima i tolerància
+    sst:{dead:13, lo:16, hi:26, top:29},
+    light:{twilight:1.0, day:0.60, night:0.55, highsun:0.35},
+    org:0,                            // 0 = indiferent a l'organització de la mar
+    weights:{wave:.30, wind:.20, stir:.15, light:.10, trans:.10, press:.08, sst:.05, moon:.02},
+    bottom:{sand:1.0, mixed:1.0, rock:0.55}, posidonia:1.08, channel:1.02,
+    tip:'Fons de sorra o mixtos amb conquilla, prop de praderies. Vol mar de fons moderat i una mica de terbolesa: quan es remou, s\'anticipa.'
+  },
+  sarg: {
+    label:'Sarg', latin:'Diplodus sargus',
+    hs:[0.50,1.20], tp:[6,9],
+    stir:0.68, stirW:0.30,
+    sst:{dead:9, lo:12, hi:24, top:27},
+    light:{twilight:1.0, day:0.55, night:0.25, highsun:0.35},
+    org:1,                            // premia la mar organitzada, sense canvis bruscos
+    weights:{wave:.30, wind:.20, stir:.20, light:.15, trans:.05, press:.05, sst:.03, moon:.02},
+    bottom:{sand:0.40, mixed:0.85, rock:1.0}, posidonia:1.0, channel:1.0,
+    tip:'Roques, parets i sortints amb aigua moguda i blanca. Prefereix onatge constant i organitzat, no cops de mar sobtats.'
+  },
+  llobarro: {
+    label:'Llobarro', latin:'Dicentrarchus labrax',
+    hs:[0.60,1.50], tp:[6,10],
+    stir:0.78, stirW:0.34,
+    sst:{dead:8, lo:11, hi:22, top:25},
+    light:{twilight:1.0, day:0.35, night:0.85, highsun:0.22},
+    org:-1,                           // el canvi d'estat de la mar el beneficia
+    weights:{wave:.25, wind:.20, stir:.15, light:.20, trans:.10, press:.05, sst:.03, moon:.02},
+    bottom:{sand:0.95, mixed:1.0, rock:0.95}, posidonia:1.0, channel:1.18,
+    tip:'Canals, bocanes i desembocadures amb flux. Aprofita la mar moguda i la poca visibilitat, i ataca en finestres curtes.'
+  },
+  mabre: {
+    label:'Mabre', latin:'Lithognathus mormyrus',
+    hs:[0.20,0.80], tp:[4,8],
+    stir:0.32, stirW:0.24,             // vol aigua clara; poca terbolesa
+    sst:{dead:10, lo:14, hi:24, top:27},
+    light:{twilight:1.0, day:0.35, night:0.85, highsun:0.20},
+    org:1,                             // vol mar tranquil·la i consistent
+    weights:{wave:.28, wind:.20, stir:.14, light:.15, trans:.08, press:.07, sst:.06, moon:.02},
+    bottom:{sand:1.0, mixed:0.85, rock:0.35}, posidonia:1.05, channel:1.05,
+    tip:'Fons de sorra i vores de praderia. Molt desconfiat: vol mar plana i aigua clara, i pica sobretot al capvespre i de nit.'
+  },
+  oblada: {
+    label:'Oblada', latin:'Oblada melanura',
+    hs:[0.20,0.70], tp:[4,7],
+    stir:0.28, stirW:0.20,             // caçador visual de mitja aigua
+    sst:{dead:11, lo:14, hi:25, top:28},
+    light:{twilight:0.85, day:0.85, night:0.35, highsun:0.55},
+    org:1,
+    weights:{wave:.25, wind:.18, stir:.15, light:.18, trans:.07, press:.06, sst:.08, moon:.03},
+    bottom:{sand:0.50, mixed:0.90, rock:1.0}, posidonia:1.10, channel:1.0,
+    tip:'De mitja aigua, sobre roca i posidònia. Bona també de dia si l\'aigua és clara; en banc, si en pica un en cauen més.'
+  },
+  corball: {
+    label:'Corball', latin:'Sciaena umbra',
+    sensitive:true, gearMismatch:true,
+    hs:[0.30,1.20], tp:[5,9],
+    stir:0.55, stirW:0.35,             // tolera i aprofita l'aigua remoguda post-temporal
+    sst:{dead:12, lo:15, hi:24, top:27},
+    light:{twilight:0.90, day:0.12, night:1.0, highsun:0.05},
+    org:-1,                            // el canvi/temporal recent el pot fer sortir de dia
+    weights:{wave:.22, wind:.12, stir:.15, light:.25, trans:.12, press:.05, sst:.07, moon:.02},
+    bottom:{sand:0.20, mixed:0.50, rock:1.0}, posidonia:1.0, channel:1.0,
+    gearMult:0.85,
+    tip:'Coves i forats de roca, molt sedentari. Gairebé sempre nocturn; de dia només és pescable acabat de passar un temporal.'
+  },
+  boga: {
+    label:'Boga', latin:'Boops boops',
+    hs:[0.20,0.80], tp:[4,7],
+    stir:0.30, stirW:0.22,
+    sst:{dead:12, lo:15, hi:26, top:29},
+    light:{twilight:1.0, day:0.45, night:0.85, highsun:0.30},
+    org:1,
+    weights:{wave:.22, wind:.20, stir:.16, light:.18, trans:.08, press:.06, sst:.08, moon:.02},
+    bottom:{sand:0.90, mixed:1.0, rock:1.0}, posidonia:1.0, channel:1.10,
+    tip:'De banc, en mitja aigua a qualsevol fons. Si menja la boga, sol ser senyal que hi ha corrent i vida a la zona.'
+  },
+  lliri: {
+    label:'Lliri', latin:'Pomatomus saltatrix',
+    gearMismatch:true, speculative:true,
+    hs:[0.40,1.30], tp:[5,9],
+    stir:0.72, stirW:0.32,             // depredador: caça a l'aigua moguda i tèrbola
+    sst:{dead:15, lo:18, hi:27, top:29},
+    light:{twilight:1.0, day:0.55, night:0.65, highsun:0.40},
+    org:-1,                            // ataca en ramat quan la mar canvia i entra peix petit
+    weights:{wave:.20, wind:.18, stir:.20, light:.12, trans:.15, press:.05, sst:.08, moon:.02},
+    bottom:{sand:1.0, mixed:0.90, rock:0.55}, posidonia:1.0, channel:1.35,
+    tip:'Tallahams a molts fòrums. Depredador de pas, sobretot a canals i desembocadures amb aigua moguda i peixet petit a prop.'
+  }
+};
+
+/* --------------------------- 3. UTILITATS --------------------------- */
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const rad=d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
+const ROSE=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+const rose=d=>ROSE[Math.round(((d%360)+360)%360/22.5)%16];
+// diferència angular amb signe, dins [-180,180]
+const angDiff=(a,b)=>((a-b+540)%360)-180;
+// campana asimètrica: 1 dins [lo,hi], decau fora amb amplades pròpies
+function band(v,lo,hi,softLo,softHi){
+  if(v<lo) return Math.exp(-Math.pow((lo-v)/softLo,2));
+  if(v>hi) return Math.exp(-Math.pow((v-hi)/softHi,2));
+  return 1;
+}
+const bell=(v,c,w)=>Math.exp(-Math.pow((v-c)/w,2));
+function std(arr){
+  if(arr.length<2) return 0;
+  const m=arr.reduce((a,b)=>a+b,0)/arr.length;
+  return Math.sqrt(arr.reduce((a,b)=>a+(b-m)*(b-m),0)/arr.length);
+}
+// desviació circular en graus (per a la direcció de l'onatge)
+function circStd(arr){
+  if(arr.length<2) return 0;
+  let sx=0,sy=0;
+  for(const a of arr){ sx+=Math.cos(rad(a)); sy+=Math.sin(rad(a)); }
+  const R=Math.sqrt(sx*sx+sy*sy)/arr.length;
+  return deg(Math.sqrt(Math.max(0,-2*Math.log(Math.max(R,1e-6)))));
+}
+
+/* Elevació solar (NOAA simplificat) — per a les finestres de llum */
+function solarElevation(date, lat, lon){
+  const rd = (date - Date.UTC(1970,0,1))/86400000;
+  const n = rd - 10957.5;                       // dies des de J2000
+  const L = (280.460 + 0.9856474*n) % 360;
+  const g = rad((357.528 + 0.9856003*n) % 360);
+  const lam = rad(L + 1.915*Math.sin(g) + 0.020*Math.sin(2*g));
+  const eps = rad(23.439 - 0.0000004*n);
+  const decl = Math.asin(Math.sin(eps)*Math.sin(lam));
+  const gmst = (18.697374558 + 24.06570982441908*n) % 24;
+  const ra = Math.atan2(Math.cos(eps)*Math.sin(lam), Math.cos(lam));
+  const utc = date.getUTCHours() + date.getUTCMinutes()/60;
+  let ha = rad((gmst*15 + lon) - deg(ra));
+  const la = rad(lat);
+  return deg(Math.asin(Math.sin(la)*Math.sin(decl) + Math.cos(la)*Math.cos(decl)*Math.cos(ha)));
+}
+/* Fracció il·luminada de la lluna (aproximació) */
+function moonIllum(date){
+  const days = (date - Date.UTC(2000,0,6,18,14))/86400000;
+  const phase = ((days/29.530588853)%1+1)%1;
+  return (1-Math.cos(2*Math.PI*phase))/2;
+}
+
+/* ------------------------ 4. MOTOR DE PUNTUACIÓ ------------------------ */
+/**
+ * Calcula la sèrie horària de puntuacions d'un spot per a una espècie.
+ * Retorna {score:[], parts:[{...}], flags:[]}
+ */
+function scoreSeries(spot, S, d){
+  const n = d.time.length;
+  const out = {score:new Array(n), parts:new Array(n), flag:new Array(n)};
+
+  // --- pre-càlculs de sèrie: tendències i canvis ---
+  const dP3 = new Array(n), dHs3 = new Array(n), change = new Array(n);
+  for(let i=0;i<n;i++){
+    const j = Math.max(0,i-3);
+    dP3[i]  = d.press[i] - d.press[j];
+    dHs3[i] = d.hs[i] - d.hs[j];
+    const dW = Math.abs(angDiff(d.windDir[i], d.windDir[j]))/180;
+    change[i] = clamp(Math.abs(dHs3[i])/0.45*0.55 + Math.abs(dP3[i])/3.0*0.30 + dW*0.15);
+  }
+  // finestra de transició: el pic de canvi més proper, amb decaïment (abans, durant i després)
+  const trans = new Array(n).fill(0);
+  for(let i=0;i<n;i++){
+    let best=0;
+    for(let j=Math.max(0,i-3); j<=Math.min(n-1,i+5); j++){
+      const decay = Math.exp(-Math.abs(i-j)/3.2);
+      best = Math.max(best, change[j]*decay);
+    }
+    trans[i]=best;
+  }
+
+  for(let i=0;i<n;i++){
+    const hs=d.hs[i], tp=d.tp[i], wd=d.waveDir[i];
+    const ws=d.windSpd[i], wdir=d.windDir[i], gust=d.gust[i];
+    const sst=d.sst[i], cloud=d.cloud[i];
+    const t = new Date(d.epoch[i]*1000);
+
+    /* --- vent: component perpendicular a la costa --- */
+    // wdir és la direcció d'ON VE el vent; bearing mira cap a mar obert
+    const dAng = angDiff(wdir, spot.bearing);
+    const onshore = Math.cos(rad(dAng));          // +1 de mar cap a terra
+    const along   = Math.abs(Math.sin(rad(dAng)));
+    const dirF = clamp(0.50 + 0.42*onshore + 0.16*along);
+    const spdBell = bell(ws, 17, 13);             // òptim ~10–25 km/h
+    const spdPen  = ws>38 ? clamp(1-(ws-38)/22, 0.05,1) : 1;
+    const calm    = clamp(ws/11);                 // amb calma la direcció importa poc
+    const fWind = clamp((0.45*(1-calm) + dirF*calm) * (0.55+0.45*spdBell) * spdPen);
+
+    /* --- onatge --- */
+    const fHs = band(hs, S.hs[0], S.hs[1], 0.42*S.hs[0]+0.14, 0.52);
+    const fTp = band(tp, S.tp[0], S.tp[1], 2.0, 2.6);
+    let fWave = 0.76*fHs + 0.24*fTp;
+
+    /* --- organització de la mar (clau per al sarg) --- */
+    const back = [];
+    const backTp = [];
+    for(let j=Math.max(0,i-9);j<=i;j++){ back.push(d.waveDir[j]); backTp.push(d.tp[j]); }
+    const org = clamp(1 - (circStd(back)/26*0.6 + std(backTp)/1.7*0.4));
+    if(S.org>0)      fWave *= (0.74 + 0.26*org);        // vol mar organitzada
+    else if(S.org<0) fWave *= (0.90 + 0.10*(1-org));    // el desordre no el molesta
+
+    /* --- remoguda / aigua blanca (proxy: energia d'onatge + vent de mar) --- */
+    const E = hs*hs*tp;                                  // ∝ energia
+    const stir = clamp(0.72*Math.sqrt(E/5.5) + 0.28*Math.max(0,onshore)*clamp(ws/26));
+    const fStir = bell(stir, S.stir, S.stirW);
+
+    /* --- llum --- */
+    const el = solarElevation(t, spot.lat, spot.lon);
+    let fLight;
+    if(el < -12)      fLight = S.light.night;
+    else if(el < 8)   fLight = S.light.twilight;                       // alba/capvespre
+    else if(el < 28)  fLight = S.light.day;
+    else              fLight = S.light.highsun;
+    if(el > 6) fLight *= (1 + 0.22*(cloud/100));                       // llum filtrada
+    fLight = clamp(fLight);
+
+    /* --- pressió: tendència, no valor absolut --- */
+    const dp = dP3[i];
+    let fPress;
+    if(dp <= -4)      fPress = 0.45;                    // caiguda brusca, temporal a sobre
+    else if(dp <= -1) fPress = 1.00;                    // caiguda moderada: s'anticipen
+    else if(dp < -0.3)fPress = 0.80;
+    else if(dp < 0.6) fPress = 0.62;                    // estable
+    else if(dp < 2)   fPress = 0.48;
+    else              fPress = 0.38;                    // pujada forta postfrontal
+
+    /* --- temperatura de l'aigua --- */
+    const T=S.sst;
+    let fSst;
+    if(sst < T.dead)      fSst = 0.12;
+    else if(sst < T.lo)   fSst = 0.12 + 0.88*(sst-T.dead)/(T.lo-T.dead);
+    else if(sst <= T.hi)  fSst = 1;
+    else if(sst < T.top)  fSst = 1 - 0.55*(sst-T.hi)/(T.top-T.hi);
+    else                  fSst = 0.40;
+
+    /* --- lluna: pes testimonial, la base científica és feble --- */
+    const fMoon = 0.45 + 0.55*moonIllum(t);
+
+    const W = S.weights;
+    let raw = fWave*W.wave + fWind*W.wind + fStir*W.stir + fLight*W.light
+            + trans[i]*W.trans + fPress*W.press + fSst*W.sst + fMoon*W.moon;
+
+    /* --- caràcter estàtic de l'spot --- */
+    let mult = S.bottom[spot.bottom] ?? 1;
+    if(spot.posidonia) mult *= S.posidonia;
+    if(spot.channel)   mult *= S.channel;
+    if(S.gearMult)      mult *= S.gearMult;
+
+    /* --- porta tèrmica: sota el llindar deixen d'alimentar-se --- */
+    const gate = sst < T.dead ? 0.30
+               : sst < T.lo   ? 0.72 + 0.28*(sst-T.dead)/(T.lo-T.dead)
+               : 1;
+    raw = clamp(raw*Math.min(mult,1.2)*gate);
+
+    /* --- seguretat i impescabilitat --- */
+    let flag=null;
+    let sc = 1 + 9*raw;
+    if(hs>3.0 || gust>70){ sc=Math.min(sc,1.5); flag='perill'; }
+    else if(hs>2.2 || gust>58){ sc=Math.min(sc,3.0); flag='perill'; }
+    else if(hs>1.7 || gust>48){ sc=Math.min(sc,5.0); flag='dur'; }
+
+    out.score[i]=Math.round(sc*10)/10;
+    out.flag[i]=flag;
+    out.parts[i]={fWave,fWind,fStir,fLight,fTrans:trans[i],fPress,fSst,fMoon,
+                  onshore,along,org,stir,el,dp:dP3[i],dhs:dHs3[i],mult};
+  }
+  return out;
+}
+
+/* --------------------------- 5. DADES --------------------------- */
+const state = {
+  spots: [], species:'dorada', idx:0, sel:null, data:{}, scores:{},
+  demo:false, hours:[], epochs:[], tab:'rank', addMode:false, editing:null
+};
+
+async function loadStore(key, fallback){
+  try{ const r = await window.storage.get(key); return r? JSON.parse(r.value): fallback; }
+  catch(e){ return fallback; }
+}
+async function saveStore(key, val){
+  try{ await window.storage.set(key, JSON.stringify(val)); }catch(e){ /* sense persistència */ }
+}
+
+const HOURLY_MARINE = 'wave_height,wave_direction,wave_period,sea_surface_temperature';
+const HOURLY_MET    = 'pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover';
+
+async function fetchAll(){
+  const spots = state.spots;
+  const lat = spots.map(s=>s.lat.toFixed(4)).join(',');
+  const lon = spots.map(s=>s.lon.toFixed(4)).join(',');
+  const q = `latitude=${lat}&longitude=${lon}&timezone=Europe%2FMadrid&forecast_days=7`;
+  const [mar, met] = await Promise.all([
+    fetch(`https://marine-api.open-meteo.com/v1/marine?${q}&hourly=${HOURLY_MARINE}`).then(r=>{if(!r.ok)throw new Error('marine '+r.status);return r.json()}),
+    fetch(`https://api.open-meteo.com/v1/forecast?${q}&hourly=${HOURLY_MET}`).then(r=>{if(!r.ok)throw new Error('forecast '+r.status);return r.json()})
+  ]);
+  const A=x=>Array.isArray(x)?x:[x];
+  const M=A(mar), W=A(met);
+  const data={};
+  spots.forEach((s,k)=>{
+    const mh=M[k].hourly, wh=W[k].hourly;
+    const off=(M[k].utc_offset_seconds ?? 7200);
+    const epoch=mh.time.map(t=>Date.parse(t+'Z')/1000 - off);
+    data[s.id]={
+      time:mh.time, epoch,
+      hs:fix(mh.wave_height,0.3), tp:fix(mh.wave_period,5), waveDir:fix(mh.wave_direction,120),
+      sst:fix(mh.sea_surface_temperature,20),
+      press:fix(wh.pressure_msl,1015), windSpd:fix(wh.wind_speed_10m,8),
+      windDir:fix(wh.wind_direction_10m,140), gust:fix(wh.wind_gusts_10m,14),
+      cloud:fix(wh.cloud_cover,20)
+    };
+  });
+  return data;
+}
+// omple forats del model amb interpolació simple
+function fix(arr, def){
+  const a=arr.slice();
+  for(let i=0;i<a.length;i++) if(a[i]==null||Number.isNaN(a[i])){
+    let p=i-1; while(p>=0 && a[p]==null) p--;
+    let q=i+1; while(q<a.length && a[q]==null) q++;
+    a[i] = (p>=0&&q<a.length)? (a[p]+a[q])/2 : (p>=0? a[p] : (q<a.length? a[q] : def));
+  }
+  return a;
+}
+
+/* Dades sintètiques si la xarxa falla: prou realistes per provar el model */
+function demoData(){
+  const data={}; const now=new Date(); now.setMinutes(0,0,0);
+  const start=now.getTime()/1000 - 24*3600;
+  state.spots.forEach(s=>{
+    let h=0; for(const c of s.id) h=(h*31+c.charCodeAt(0))>>>0;
+    const ph=(h%1000)/1000*Math.PI*2;
+    const time=[],epoch=[],hs=[],tp=[],waveDir=[],sst=[],press=[],windSpd=[],windDir=[],gust=[],cloud=[];
+    for(let i=0;i<168;i++){
+      const e=start+i*3600, t=new Date(e*1000);
+      time.push(t.toISOString().slice(0,16)); epoch.push(e);
+      const swell=0.55+0.45*Math.sin(ph+i/29)+0.22*Math.sin(ph*1.7+i/7.3);
+      hs.push(Math.max(0.08, swell));
+      tp.push(5.4+2.1*Math.sin(ph+i/33)+0.4*Math.sin(i/5));
+      waveDir.push((s.bearing+18*Math.sin(ph+i/19)+360)%360);
+      sst.push(22.5+1.4*Math.sin(ph+i/61)-1.6*Math.cos(i/24*Math.PI*2)*0.25);
+      press.push(1014+7*Math.sin(ph*0.6+i/47)+1.1*Math.sin(i/12));
+      windSpd.push(Math.max(1, 13+9*Math.sin(ph*1.3+i/17)+4*Math.sin(i/6)));
+      windDir.push((s.bearing-40+120*((Math.sin(ph+i/41)+1)/2)+360)%360);
+      gust.push(Math.max(2, 20+13*Math.sin(ph*1.3+i/17)));
+      cloud.push(clamp(45+45*Math.sin(ph*2+i/23),0,100));
+    }
+    data[s.id]={time,epoch,hs,tp,waveDir,sst,press,windSpd,windDir,gust,cloud};
+  });
+  return data;
+}
+
+function recomputeAll(){
+  state.scores={};
+  const S=SPECIES[state.species];
+  for(const sp of state.spots){
+    const d=state.data[sp.id];
+    if(d) state.scores[sp.id]=scoreSeries(sp,S,d);
+  }
+}
+function nowIndex(){
+  const any=state.data[state.spots[0]?.id];
+  if(!any) return 0;
+  const now=Date.now()/1000;
+  let best=0,bd=Infinity;
+  any.epoch.forEach((e,i)=>{const diff=Math.abs(e-now); if(diff<bd){bd=diff;best=i}});
+  return best;
+}
+
+/* --------------------------- 6. COLORS --------------------------- */
+function scoreColor(v){
+  if(v<3)   return getCss('--s1');
+  if(v<4.5) return getCss('--s2');
+  if(v<6)   return getCss('--s3');
+  if(v<7.2) return getCss('--s4');
+  if(v<8.5) return getCss('--s5');
+  return getCss('--s6');
+}
+const cssCache={};
+function getCss(v){ return cssCache[v] ??= getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function verdict(v,flag){
+  if(flag==='perill') return ['Mar perillós','Amb aquest onatge la roca no és lloc per ser-hi. Deixa-ho córrer.'];
+  if(flag==='dur')    return ['Mar dur','Pescable només des de llocs alts i protegits, i amb molt de compte.'];
+  if(v>=8.5) return ['Finestra excel·lent','Condicions molt bones. Si pots triar quan sortir, és ara.'];
+  if(v>=7.2) return ['Bona finestra','Val la pena la sortida. Cobreix les primeres i últimes hores de llum.'];
+  if(v>=6)   return ['Condicions correctes','Es pot pescar amb expectatives raonables. Busca l\'estructura.'];
+  if(v>=4.5) return ['Fluix','Es pot intentar, però hi ha franges millors aquesta setmana.'];
+  if(v>=3)   return ['Poc favorable','El mar no acompanya per a aquesta espècie en aquest punt.'];
+  return ['Descartable','Ni el mar ni el vent hi juguen a favor.'];
+}
+
+/* --------------------------- 7. MAPA --------------------------- */
+let map, markers={};
+function initMap(){
+  map=L.map('map',{zoomControl:true, attributionControl:true}).setView([41.45,2.15],8);
+  const ESRI='https://services.arcgisonline.com/ArcGIS/rest/services/';
+  const credit='© Esri · Previsió: Open-Meteo (CC-BY 4.0)';
+
+  // Satèl·lit: la capa més útil per llegir el fons i trobar les clarianes de sorra
+  const sat=L.tileLayer(ESRI+'World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    {attribution:credit, maxNativeZoom:18, maxZoom:19, className:'tiles-sat'});
+
+  // Carrers: per als accessos i on deixar el cotxe
+  const carrers=L.tileLayer(ESRI+'World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    {attribution:credit, maxNativeZoom:18, maxZoom:19, className:'tiles-street'});
+
+  // Batimetria: cobertura limitada, per això el zoom natiu es queda baix i s'escala
+  const nautic=L.layerGroup([
+    L.tileLayer(ESRI+'Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
+      {attribution:credit, maxNativeZoom:11, maxZoom:19, className:'tiles-nautic'}),
+    L.tileLayer(ESRI+'Ocean/World_Ocean_Reference/MapServer/tile/{z}/{y}/{x}',
+      {maxNativeZoom:11, maxZoom:19, className:'tiles-nautic', opacity:.8})
+  ]);
+
+  sat.addTo(map);
+  L.control.layers({'Satèl·lit':sat,'Carrers':carrers,'Batimetria':nautic},null,{position:'topright'}).addTo(map);
+
+  let tileFails=0;
+  [sat,carrers].forEach(l=>l.on('tileerror',()=>{
+    if(++tileFails===8){
+      const b=$('#bnErr');
+      b.textContent='Les tessel·les del mapa no carreguen. Els punts i les puntuacions segueixen sent correctes.';
+      b.classList.add('show');
+    }
+  }));
+
+  map.on('click', e=>{
+    if(state.addMode){ openSpotModal(null, e.latlng.lat, e.latlng.lng); setAddMode(false); }
+  });
+}
+function drawMarkers(){
+  for(const id in markers){ map.removeLayer(markers[id]); }
+  markers={};
+  for(const sp of state.spots){
+    const ser=state.scores[sp.id];
+    const v=ser? ser.score[state.idx] : 0;
+    const icon=L.divIcon({
+      className:'', iconSize:[34,34], iconAnchor:[17,17],
+      html:`<div class="mk ${sp.custom?'custom':''} ${state.sel===sp.id?'sel':''}" style="background:${scoreColor(v)}">${v?v.toFixed(1):'–'}</div>`
+    });
+    const m=L.marker([sp.lat,sp.lon],{icon, title:sp.name}).addTo(map);
+    m.on('click',()=>selectSpot(sp.id));
+    markers[sp.id]=m;
+  }
+}
+
+/* --------------------------- 8. RENDER --------------------------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function fmtWhen(i){
+  const d=state.data[state.spots[0]?.id];
+  if(!d) return '—';
+  const t=new Date(d.epoch[i]*1000);
+  const days=['dg','dl','dt','dc','dj','dv','ds'];
+  const today=new Date(); today.setHours(0,0,0,0);
+  const that=new Date(t); that.setHours(0,0,0,0);
+  const dd=Math.round((that-today)/86400000);
+  const rel= dd===0?'avui': dd===1?'demà': dd===2?'demà passat': `${days[t.getDay()]} ${t.getDate()}`;
+  return `${rel} · ${String(t.getHours()).padStart(2,'0')}:00`;
+}
+
+function renderRank(){
+  const el=$('#tab-rank');
+  const rows=state.spots.map(sp=>({sp, ser:state.scores[sp.id]}))
+    .filter(r=>r.ser)
+    .sort((a,b)=>b.ser.score[state.idx]-a.ser.score[state.idx]);
+  if(!rows.length){ el.innerHTML='<div class="empty">Encara no hi ha previsions carregades.</div>'; return; }
+  const S=SPECIES[state.species];
+  el.innerHTML=`
+    <h3 class="sec">${S.label} · ${fmtWhen(state.idx)}</h3>
+    ${rows.map(({sp,ser})=>{
+      const v=ser.score[state.idx], p=ser.parts[state.idx];
+      const wind=`${rose(state.data[sp.id].windDir[state.idx])} ${Math.round(state.data[sp.id].windSpd[state.idx])}`;
+      const hs=state.data[sp.id].hs[state.idx].toFixed(1);
+      return `<div class="rank-item ${state.sel===sp.id?'sel':''}" data-id="${sp.id}">
+        <div class="pill" style="background:${scoreColor(v)}">${v.toFixed(1)}</div>
+        <div>
+          <div class="rank-name">${esc(sp.name)}</div>
+          <div class="rank-meta">${esc(sp.area||'punt propi')} · ${hs} m · ${wind} km/h</div>
+        </div>
+        ${p.onshore>0.35?'<div class="rank-badge">de mar</div>':(p.onshore<-0.35?'<div class="rank-badge">de terra</div>':'')}
+      </div>`;
+    }).join('')}
+    <div class="foot">
+      Les notes valoren vent, onatge, remoguda, llum, canvis d'estat de la mar, tendència baromètrica
+      i temperatura de l'aigua. La marea no hi entra: a la costa catalana l'amplitud astronòmica és de pocs centímetres.<br><br>
+      Comprova sempre si el punt és zona de pesca permesa al mapa
+      <a href="https://agricultura.gencat.cat/ca/ambits/pesca/pesca-recreativa/mapa-onpescar/" target="_blank" rel="noopener">OnPescar</a>
+      de la Generalitat abans de sortir.
+    </div>`;
+  el.querySelectorAll('.rank-item').forEach(n=>n.onclick=()=>{selectSpot(n.dataset.id); switchTab('detail');});
+}
+
+function factorRow(name, val, weight){
+  const pct=Math.round(val*100);
+  return `<div class="fbar">
+    <div class="lbl"><span>${name}</span><span>${pct}%</span></div>
+    <div class="track"><div class="fill" style="width:${pct}%;background:${scoreColor(1+9*val)}"></div>
+    <div class="wgt" style="left:${Math.round(weight*100)}%" title="pes ${Math.round(weight*100)}%"></div></div>
+  </div>`;
+}
+
+function renderDetail(){
+  const el=$('#tab-detail');
+  const sp=state.spots.find(s=>s.id===state.sel);
+  if(!sp){ el.innerHTML='<div class="empty">Tria un punt al mapa o al rànquing<br>per veure’n el detall.</div>'; return; }
+  const d=state.data[sp.id], ser=state.scores[sp.id], i=state.idx;
+  if(!d||!ser){ el.innerHTML='<div class="empty">Sense dades per a aquest punt.</div>'; return; }
+  const v=ser.score[i], p=ser.parts[i], S=SPECIES[state.species];
+  const [vh,vt]=verdict(v,ser.flag[i]);
+  const bottomTxt={sand:'Sorra',mixed:'Mixt',rock:'Roca'}[sp.bottom];
+
+  el.innerHTML=`
+    <div class="d-head">
+      <h2>${esc(sp.name)}</h2>
+      <div style="font-size:12px;color:var(--steel)">${esc(sp.area||'Punt propi')} · ${sp.lat.toFixed(4)}, ${sp.lon.toFixed(4)}</div>
+      <div style="font-size:11.5px;color:var(--steel);font-style:italic;margin-top:2px">${S.label} · ${S.latin}</div>
+      <div class="tagrow">
+        <span class="tag">${bottomTxt}</span>
+        <span class="tag">mar cap a ${rose(sp.bearing)} · ${sp.bearing}°</span>
+        ${sp.posidonia?'<span class="tag pos">Posidònia</span>':''}
+        ${sp.channel?'<span class="tag pos">Canal / desembocadura</span>':''}
+        ${sp.custom?'<span class="tag">Punt propi</span>':''}
+      </div>
+    </div>
+
+    <div class="gauge">
+      <div class="gauge-num" style="color:${scoreColor(v)}">${v.toFixed(1)}<small>/10</small></div>
+      <div class="verdict"><b>${vh}</b>${vt}</div>
+    </div>
+
+    ${ser.flag[i]?`<div class="note danger">${ser.flag[i]==='perill'
+      ? 'Onatge o ratxes perilloses per pescar des de roca. La nota està limitada per seguretat.'
+      : 'Mar dur: només des de posicions altes i arrecerades, mai sol i mai a peu d\'aigua.'}</div>`:''}
+    ${d.sst[i] < S.sst.dead ? `<div class="note">Aigua a ${d.sst[i].toFixed(1)} °C. Per sota d'uns ${S.sst.dead} °C aquesta espècie pràcticament deixa d'alimentar-se, i la nota queda limitada per això.</div>`:''}
+    ${S.sensitive ? `<div class="note danger">Espècie sensible i protegida (UICN Vulnerable al Mediterrani, gran declivi des dels 80). Sol tenir talla mínima alta (~30 cm, confirma-la al DOGC) i veda biològica de 2 mesos. Si en captures un fora de mida o en veda, allibera'l amb cura.</div>`:''}
+    ${S.gearMismatch ? `<div class="note">${state.species==='corball' ? 'L\'ham 4-6 amb cuc és subòptim per a exemplars grans: millor calamar o tros de peix amb ham fort.' : 'Dents esmolades: talla el fil amb facilitat. Posa un tram de filferro o de monofilament gruixut (0,60-0,80 mm) com a baix de línia.'}</div>`:''}
+    ${S.speculative ? `<div class="note">Espècie amb poca literatura científica específica per al Mediterrani: el model es basa en comportament general de la família i en l'observació de camp, no en dades experimentals locals.</div>`:''}
+    ${sp.note?`<div class="note">${esc(sp.note)}</div>`:''}
+
+    <h3 class="sec">Condicions</h3>
+    <div class="readout">
+      <div class="cell"><div class="k">Onatge</div><div class="v">${d.hs[i].toFixed(1)} <small>m · ${d.tp[i].toFixed(1)} s</small></div></div>
+      <div class="cell"><div class="k">Mar de</div><div class="v">${rose(d.waveDir[i])} <small>${Math.round(d.waveDir[i])}°</small></div></div>
+      <div class="cell"><div class="k">Vent</div><div class="v">${rose(d.windDir[i])} ${Math.round(d.windSpd[i])} <small>km/h</small></div></div>
+      <div class="cell"><div class="k">Ratxa</div><div class="v">${Math.round(d.gust[i])} <small>km/h</small></div></div>
+      <div class="cell"><div class="k">Pressió 3 h</div><div class="v">${p.dp>=0?'+':''}${p.dp.toFixed(1)} <small>hPa</small></div></div>
+      <div class="cell"><div class="k">Aigua</div><div class="v">${d.sst[i].toFixed(1)} <small>°C</small></div></div>
+    </div>
+    <div style="font-size:12px;color:var(--steel);margin-top:8px">
+      ${p.onshore>0.35?'Vent de mar: amuntega aigua, remou i enterboleix la franja costanera.'
+       :p.onshore<-0.35?'Vent de terra: aplana la mar i aclareix l\'aigua a peu de costa.'
+       :'Vent paral·lel a la costa: genera deriva litoral i moviment lateral.'}
+    </div>
+
+    <h3 class="sec">Què hi pesa</h3>
+    ${factorRow('Onatge (alçada i període)', p.fWave, S.weights.wave)}
+    ${factorRow('Vent respecte la costa', p.fWind, S.weights.wind)}
+    ${factorRow('Remoguda i terbolesa', p.fStir, S.weights.stir)}
+    ${factorRow('Finestra de llum', p.fLight, S.weights.light)}
+    ${factorRow('Canvi d\'estat de la mar', p.fTrans, S.weights.trans)}
+    ${factorRow('Tendència baromètrica', p.fPress, S.weights.press)}
+    ${factorRow('Temperatura de l\'aigua', p.fSst, S.weights.sst)}
+    <div style="font-size:11.5px;color:var(--steel);margin-top:4px">
+      La marca vertical de cada barra indica el pes del factor per a ${S.label.toLowerCase()}.
+      Multiplicador per tipus de fons i estructura: ×${p.mult.toFixed(2)}.
+    </div>
+
+    <h3 class="sec">Set dies</h3>
+    <div class="ribbon-wrap"><canvas class="ribbon" id="ribbon"></canvas></div>
+    <div class="ribbon-legend">
+      <span><i style="background:var(--s6)"></i>bo</span>
+      <span><i style="background:var(--s3)"></i>mitjà</span>
+      <span><i style="background:var(--s1)"></i>dolent</span>
+      <span><i style="background:#0A1E28;border:1px solid var(--line)"></i>nit</span>
+      <span><i style="background:var(--buoy)"></i>canvi d'estat de la mar</span>
+    </div>
+
+    <h3 class="sec">Millors finestres</h3>
+    <div id="windows"></div>
+
+    <div style="font-size:12px;color:var(--steel);margin-top:16px;line-height:1.5">${esc(S.tip)}</div>
+    ${sp.custom?`<div class="sheet-actions"><button class="btn" id="editSpot">Edita aquest punt</button></div>`:''}
+  `;
+  drawRibbon(sp,ser,d);
+  renderWindows(sp,ser);
+  const es=$('#editSpot'); if(es) es.onclick=()=>openSpotModal(sp);
+}
+
+/* --- signature: cinta de 7 dies, llegible com una banda de barògraf --- */
+function drawRibbon(sp,ser,d){
+  const cv=$('#ribbon'); if(!cv) return;
+  const dpr=window.devicePixelRatio||1;
+  const W=cv.clientWidth, H=104;
+  cv.width=W*dpr; cv.height=H*dpr;
+  const g=cv.getContext('2d'); g.scale(dpr,dpr);
+  const n=ser.score.length, colW=W/n;
+  g.clearRect(0,0,W,H);
+
+  // nit
+  for(let i=0;i<n;i++){
+    const el=solarElevation(new Date(d.epoch[i]*1000), sp.lat, sp.lon);
+    if(el<-6){ g.fillStyle='rgba(0,0,0,.30)'; g.fillRect(i*colW,0,colW+.6,H); }
+  }
+  // columnes de puntuació
+  for(let i=0;i<n;i++){
+    const v=ser.score[i], h=(v/10)*(H-22);
+    g.fillStyle=scoreColor(v); g.globalAlpha=.92;
+    g.fillRect(i*colW, H-18-h, colW+.6, h);
+  }
+  g.globalAlpha=1;
+  // marques de canvi d'estat de la mar
+  for(let i=1;i<n;i++){
+    if(ser.parts[i].fTrans>0.62 && ser.parts[i-1].fTrans<=0.62){
+      g.fillStyle=getCss('--buoy'); g.fillRect(i*colW,0,1.6,H-18);
+    }
+  }
+  // dies
+  g.font='10px '+getComputedStyle(document.body).getPropertyValue('--mono');
+  const names=['dg','dl','dt','dc','dj','dv','ds'];
+  for(let i=0;i<n;i++){
+    const t=new Date(d.epoch[i]*1000);
+    if(t.getHours()===0){
+      g.strokeStyle='rgba(230,239,236,.18)'; g.beginPath();
+      g.moveTo(i*colW+.5,0); g.lineTo(i*colW+.5,H-18); g.stroke();
+      g.fillStyle=getCss('--steel');
+      g.fillText(`${names[t.getDay()]} ${t.getDate()}`, i*colW+4, H-6);
+    }
+  }
+  // hora seleccionada
+  g.strokeStyle=getCss('--foam'); g.lineWidth=1.5; g.beginPath();
+  g.moveTo(state.idx*colW+colW/2, 0); g.lineTo(state.idx*colW+colW/2, H-18); g.stroke();
+
+  cv.onclick=e=>{
+    const r=cv.getBoundingClientRect();
+    setIdx(clamp(Math.floor((e.clientX-r.left)/r.width*n),0,n-1));
+  };
+}
+
+function renderWindows(sp,ser){
+  const el=$('#windows'); if(!el) return;
+  const n=ser.score.length, wins=[];
+  let i=0;
+  while(i<n){
+    if(ser.score[i]>=6.8 && !ser.flag[i]){
+      let j=i; let peak=i;
+      while(j<n && ser.score[j]>=6.3 && !ser.flag[j]){ if(ser.score[j]>ser.score[peak]) peak=j; j++; }
+      if(j-i>=2) wins.push({a:i,b:j-1,peak});
+      i=j;
+    } else i++;
+  }
+  wins.sort((x,y)=>ser.score[y.peak]-ser.score[x.peak]);
+  if(!wins.length){ el.innerHTML='<div style="font-size:12.5px;color:var(--steel)">Cap finestra clara aquests set dies per a aquesta espècie en aquest punt.</div>'; return; }
+  const d=state.data[sp.id];
+  el.innerHTML=wins.slice(0,5).map(w=>{
+    const ta=new Date(d.epoch[w.a]*1000), tb=new Date(d.epoch[w.b]*1000);
+    const days=['dg','dl','dt','dc','dj','dv','ds'];
+    const p=ser.parts[w.peak];
+    let why = p.fTrans>0.6 ? 'canvi d\'estat de la mar'
+            : p.fLight>0.9 ? 'llum d\'alba o capvespre'
+            : p.fStir>0.85 ? 'aigua remoguda'
+            : p.fWind>0.75 ? 'vent favorable' : 'onatge en el punt';
+    return `<div class="window" data-i="${w.peak}">
+      <div class="pill" style="background:${scoreColor(ser.score[w.peak])};width:34px;height:28px;font-size:13px">${ser.score[w.peak].toFixed(1)}</div>
+      <div class="w-when">${days[ta.getDay()]} ${ta.getDate()} · ${String(ta.getHours()).padStart(2,'0')}–${String(tb.getHours()).padStart(2,'0')} h</div>
+      <div class="w-why">${why}</div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.window').forEach(n2=>n2.onclick=()=>setIdx(+n2.dataset.i));
+}
+
+/* --------------------------- 9. INTERACCIÓ --------------------------- */
+function setIdx(i){
+  state.idx=i; $('#timeSlider').value=i; $('#whenLbl').textContent=fmtWhen(i);
+  drawMarkers(); renderRank(); renderDetail();
+}
+function selectSpot(id){ state.sel=id; drawMarkers(); renderRank(); renderDetail(); }
+function switchTab(t){
+  state.tab=t;
+  document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected', b.dataset.tab===t));
+  document.querySelectorAll('.tabpanel').forEach(p=>p.classList.toggle('active', p.id==='tab-'+t));
+  if(t==='detail'){ const sp=state.spots.find(s=>s.id===state.sel); if(sp) renderDetail(); }
+}
+function setAddMode(on){
+  state.addMode=on;
+  $('#btnAdd').classList.toggle('on',on);
+  $('#addHint').classList.toggle('show',on);
+  if(map) map.getContainer().style.cursor = on?'crosshair':'';
+}
+
+/* --- modal de punt --- */
+let smBearing=135, smBottom='mixed', smFeat={posidonia:false,channel:false}, smLat=0, smLon=0;
+function openSpotModal(spot, lat, lon){
+  state.editing = spot || null;
+  smLat = spot? spot.lat : lat; smLon = spot? spot.lon : lon;
+  smBottom = spot? spot.bottom : 'mixed';
+  smBearing = spot? spot.bearing : suggestBearing(smLat, smLon);
+  smFeat = {posidonia: !!spot?.posidonia, channel: !!spot?.channel};
+  $('#smTitle').textContent = spot? 'Edita el punt' : 'Punt nou';
+  $('#smCoords').textContent = `${smLat.toFixed(4)}, ${smLon.toFixed(4)}`;
+  $('#smName').value = spot? spot.name : '';
+  $('#smDelete').style.display = spot? 'block':'none';
+  syncModal(); $('#spotModal').classList.add('show'); $('#smName').focus();
+}
+// suggereix l'orientació copiant el punt conegut més proper
+function suggestBearing(lat,lon){
+  let best=BUILTIN[0], bd=Infinity;
+  for(const s of BUILTIN){
+    const d=(s.lat-lat)**2+(s.lon-lon)**2;
+    if(d<bd){bd=d;best=s}
+  }
+  return best.bearing;
+}
+function syncModal(){
+  document.querySelectorAll('#smBottom .chip').forEach(c=>c.setAttribute('aria-pressed', c.dataset.v===smBottom));
+  document.querySelectorAll('#smFeat .chip').forEach(c=>c.setAttribute('aria-pressed', !!smFeat[c.dataset.v]));
+  $('#smBearingTxt').textContent=`${smBearing}° ${rose(smBearing)}`;
+  drawCompass();
+}
+function drawCompass(){
+  const cv=$('#smCompass'), g=cv.getContext('2d');
+  const R=96, cx=96, cy=96;
+  g.clearRect(0,0,192,192);
+  g.fillStyle=getCss('--panel'); g.beginPath(); g.arc(cx,cy,R-3,0,7); g.fill();
+  g.strokeStyle=getCss('--line'); g.lineWidth=2; g.stroke();
+  g.font='bold 13px sans-serif'; g.fillStyle=getCss('--steel'); g.textAlign='center'; g.textBaseline='middle';
+  [['N',0],['E',90],['S',180],['O',270]].forEach(([l,a])=>{
+    g.fillText(l, cx+Math.sin(rad(a))*(R-18), cy-Math.cos(rad(a))*(R-18));
+  });
+  for(let a=0;a<360;a+=15){
+    const r1=R-9, r2=(a%45===0)?R-19:R-14;
+    g.strokeStyle='rgba(138,166,178,.4)'; g.lineWidth=1; g.beginPath();
+    g.moveTo(cx+Math.sin(rad(a))*r1, cy-Math.cos(rad(a))*r1);
+    g.lineTo(cx+Math.sin(rad(a))*r2, cy-Math.cos(rad(a))*r2); g.stroke();
+  }
+  const x=cx+Math.sin(rad(smBearing))*(R-30), y=cy-Math.cos(rad(smBearing))*(R-30);
+  g.strokeStyle=getCss('--buoy'); g.lineWidth=3; g.beginPath(); g.moveTo(cx,cy); g.lineTo(x,y); g.stroke();
+  g.fillStyle=getCss('--buoy'); g.beginPath(); g.arc(x,y,7,0,7); g.fill();
+  g.fillStyle=getCss('--foam'); g.beginPath(); g.arc(cx,cy,4,0,7); g.fill();
+}
+function compassFromEvent(e){
+  const cv=$('#smCompass'), r=cv.getBoundingClientRect();
+  const pt = e.touches? e.touches[0] : e;
+  const dx=(pt.clientX-r.left)/r.width*192-96, dy=(pt.clientY-r.top)/r.height*192-96;
+  smBearing=Math.round(((deg(Math.atan2(dx,-dy))%360)+360)%360);
+  syncModal();
+}
+
+/* --------------------------- 10. ARRENCADA --------------------------- */
+async function refresh(){
+  $('#bnErr').classList.remove('show');
+  try{
+    state.data = await fetchAll();
+    state.demo=false;
+  }catch(err){
+    state.demo=true; state.data=demoData();
+    console.warn('Open-Meteo no disponible:', err.message);
+  }
+  $('#bnDemo').classList.toggle('show', state.demo);
+  recomputeAll();
+  setIdx(nowIndex());
+  drawMarkers();
+}
+
+async function boot(){
+  const custom = await loadStore('spots:custom', []);
+  state.spots=[...BUILTIN, ...custom.map(s=>({...s, custom:true}))];
+  initMap();
+  await refresh();
+
+  // espècie
+  document.querySelectorAll('.species button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('.species button').forEach(x=>x.setAttribute('aria-pressed', x===b));
+    state.species=b.dataset.sp; recomputeAll(); drawMarkers(); renderRank(); renderDetail();
+  });
+  // pestanyes
+  document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+  // temps
+  $('#timeSlider').oninput=e=>setIdx(+e.target.value);
+  $('#btnNow').onclick=()=>setIdx(nowIndex());
+  $('#btnReload').onclick=async()=>{ $('#btnReload').textContent='…'; await refresh(); $('#btnReload').textContent='↻'; };
+  // afegir punt
+  $('#btnAdd').onclick=()=>setAddMode(!state.addMode);
+
+  // modal
+  document.querySelectorAll('#smBottom .chip').forEach(c=>c.onclick=()=>{smBottom=c.dataset.v; syncModal()});
+  document.querySelectorAll('#smFeat .chip').forEach(c=>c.onclick=()=>{smFeat[c.dataset.v]=!smFeat[c.dataset.v]; syncModal()});
+  const cv=$('#smCompass');
+  let dragging=false;
+  cv.addEventListener('pointerdown',e=>{dragging=true;cv.setPointerCapture(e.pointerId);compassFromEvent(e)});
+  cv.addEventListener('pointermove',e=>{if(dragging)compassFromEvent(e)});
+  cv.addEventListener('pointerup',()=>dragging=false);
+  $('#smCancel').onclick=()=>$('#spotModal').classList.remove('show');
+  $('#spotModal').onclick=e=>{if(e.target.id==='spotModal')$('#spotModal').classList.remove('show')};
+  $('#smSave').onclick=saveSpot;
+  $('#smDelete').onclick=deleteSpot;
+
+  switchTab('rank');
+  // recalcula la cinta si canvia l'amplada
+  let rt; window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(renderDetail,180)});
+}
+
+async function saveSpot(){
+  const name=$('#smName').value.trim() || 'Punt sense nom';
+  if(state.editing){
+    Object.assign(state.editing,{name, bearing:smBearing, bottom:smBottom,
+      posidonia:smFeat.posidonia, channel:smFeat.channel});
+  }else{
+    const sp={id:'u'+Date.now().toString(36), name, area:'', lat:smLat, lon:smLon,
+      bearing:smBearing, bottom:smBottom, posidonia:smFeat.posidonia, channel:smFeat.channel, custom:true};
+    state.spots.push(sp); state.sel=sp.id;
+  }
+  $('#spotModal').classList.remove('show');
+  await persistCustom();
+  await refresh();
+  switchTab('detail');
+}
+async function deleteSpot(){
+  if(!state.editing) return;
+  state.spots=state.spots.filter(s=>s!==state.editing);
+  if(state.sel===state.editing.id) state.sel=null;
+  state.editing=null;
+  $('#spotModal').classList.remove('show');
+  await persistCustom();
+  await refresh();
+  switchTab('rank');
+}
+async function persistCustom(){
+  const custom=state.spots.filter(s=>s.custom).map(({id,name,lat,lon,bearing,bottom,posidonia,channel})=>
+    ({id,name,lat,lon,bearing,bottom,posidonia,channel}));
+  await saveStore('spots:custom', custom);
+}
+
+boot().catch(err=>{
+  const b=$('#bnErr'); b.textContent='No s\'ha pogut arrencar l\'aplicació: '+err.message; b.classList.add('show');
+  console.error(err);
+});
+
+// Registre del service worker: només funciona servit per https/localhost.
+// Si s'obre com a fitxer local (file://) la crida falla en silenci, sense afectar l'app.
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('service-worker.js').catch(()=>{/* ok si no és servidor real */});
+  });
+}
+</script>
+</body>
+</html>
