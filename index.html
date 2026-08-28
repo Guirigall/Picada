@@ -658,11 +658,12 @@ const state = {
 };
 
 async function loadStore(key, fallback){
-  try{ const r = await window.storage.get(key); return r? JSON.parse(r.value): fallback; }
+  try{ const raw = localStorage.getItem(key); return raw!==null ? JSON.parse(raw) : fallback; }
   catch(e){ return fallback; }
 }
 async function saveStore(key, val){
-  try{ await window.storage.set(key, JSON.stringify(val)); }catch(e){ /* sense persistència */ }
+  try{ localStorage.setItem(key, JSON.stringify(val)); }
+  catch(e){ console.warn('No s\'ha pogut desar', key, e); }
 }
 
 const HOURLY_MARINE = 'wave_height,wave_direction,wave_period,sea_surface_temperature';
