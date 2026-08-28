@@ -271,6 +271,7 @@ input[type=text],select{
       <button data-sp="boga" aria-pressed="false">Boga</button>
       <button data-sp="corball" aria-pressed="false">Corball</button>
       <button data-sp="lliri" aria-pressed="false">Lliri</button>
+      <button data-sp="calamar" aria-pressed="false">Calamar</button>
     </div>
     <div class="hdr-actions">
       <button class="btn" id="btnAdd">+ Punt</button>
@@ -334,6 +335,7 @@ input[type=text],select{
     <div class="chips" id="smFeat">
       <button class="chip" data-v="posidonia">Posidònia a prop</button>
       <button class="chip" data-v="channel">Canal o desembocadura</button>
+      <button class="chip" data-v="harborLight">Port o moll amb llum</button>
     </div>
 
     <div class="sheet-actions">
@@ -436,7 +438,8 @@ const SPECIES = {
   },
   corball: {
     label:'Corball', latin:'Sciaena umbra',
-    sensitive:true, gearMismatch:true,
+    sensitive:true,
+    gearNote:'L\'ham 4-6 amb cuc és subòptim per a exemplars grans: millor calamar o tros de peix amb ham fort.',
     hs:[0.30,1.20], tp:[5,9],
     stir:0.55, stirW:0.35,             // tolera i aprofita l'aigua remoguda post-temporal
     sst:{dead:12, lo:15, hi:24, top:27},
@@ -460,7 +463,8 @@ const SPECIES = {
   },
   lliri: {
     label:'Lliri', latin:'Pomatomus saltatrix',
-    gearMismatch:true, speculative:true,
+    speculative:true,
+    gearNote:'Dents esmolades: talla el fil amb facilitat. Posa un tram de filferro o de monofilament gruixut (0,60-0,80 mm) com a baix de línia.',
     hs:[0.40,1.30], tp:[5,9],
     stir:0.72, stirW:0.32,             // depredador: caça a l'aigua moguda i tèrbola
     sst:{dead:15, lo:18, hi:27, top:29},
@@ -469,6 +473,20 @@ const SPECIES = {
     weights:{wave:.20, wind:.18, stir:.20, light:.12, trans:.15, press:.05, sst:.08, moon:.02},
     bottom:{sand:1.0, mixed:0.90, rock:0.55}, posidonia:1.0, channel:1.35,
     tip:'Tallahams a molts fòrums. Depredador de pas, sobretot a canals i desembocadures amb aigua moguda i peixet petit a prop.'
+  },
+  calamar: {
+    label:'Calamar', latin:'Loligo vulgaris',
+    speculative:true, moonDark:true,
+    gearNote:'No es pesca amb ham i cuc: cal potera o jibionera (senyol amb corona de punxes) i canya lleugera. És una tècnica diferent de la resta de l\'app.',
+    hs:[0.05,0.35], tp:[3,6],           // vol mar gairebé plana per treballar la potera i per seguretat nocturna
+    stir:0.15, stirW:0.16,             // caçador visual: aigua ben clara
+    sst:{dead:9, lo:12, hi:19, top:23},
+    light:{twilight:1.0, day:0.10, night:0.95, highsun:0.05},
+    org:1,
+    weights:{wave:.22, wind:.10, stir:.16, light:.20, trans:.06, press:.04, sst:.06, moon:.16},
+    bottom:{sand:1.0, mixed:1.0, rock:0.80}, posidonia:1.05, channel:1.0,
+    harborBonus:{yes:1.5, no:0.55},
+    tip:'De nit, a la llum d\'un moll o far de port sobre aigua neta. Amb lluna fosca es concentren a la llum; amb lluna plena es dispersen i costen més de localitzar.'
   }
 };
 
@@ -617,7 +635,9 @@ function scoreSeries(spot, S, d){
     else                  fSst = 0.40;
 
     /* --- lluna: pes testimonial, la base científica és feble --- */
-    const fMoon = 0.45 + 0.55*moonIllum(t);
+    const fMoon = S.moonDark
+      ? 0.30 + 0.70*(1 - moonIllum(t))   // lluna fosca: es concentren a la llum artificial
+      : 0.45 + 0.55*moonIllum(t);
 
     const W = S.weights;
     let raw = fWave*W.wave + fWind*W.wind + fStir*W.stir + fLight*W.light
@@ -628,6 +648,7 @@ function scoreSeries(spot, S, d){
     if(spot.posidonia) mult *= S.posidonia;
     if(spot.channel)   mult *= S.channel;
     if(S.gearMult)      mult *= S.gearMult;
+    if(S.harborBonus)   mult *= spot.harborLight ? S.harborBonus.yes : S.harborBonus.no;
 
     /* --- porta tèrmica: sota el llindar deixen d'alimentar-se --- */
     const gate = sst < T.dead ? 0.30
@@ -896,6 +917,7 @@ function renderDetail(){
         <span class="tag">mar cap a ${rose(sp.bearing)} · ${sp.bearing}°</span>
         ${sp.posidonia?'<span class="tag pos">Posidònia</span>':''}
         ${sp.channel?'<span class="tag pos">Canal / desembocadura</span>':''}
+        ${sp.harborLight?'<span class="tag pos">Port / moll amb llum</span>':''}
         ${sp.custom?'<span class="tag">Punt propi</span>':''}
       </div>
     </div>
@@ -910,7 +932,7 @@ function renderDetail(){
       : 'Mar dur: només des de posicions altes i arrecerades, mai sol i mai a peu d\'aigua.'}</div>`:''}
     ${d.sst[i] < S.sst.dead ? `<div class="note">Aigua a ${d.sst[i].toFixed(1)} °C. Per sota d'uns ${S.sst.dead} °C aquesta espècie pràcticament deixa d'alimentar-se, i la nota queda limitada per això.</div>`:''}
     ${S.sensitive ? `<div class="note danger">Espècie sensible i protegida (UICN Vulnerable al Mediterrani, gran declivi des dels 80). Sol tenir talla mínima alta (~30 cm, confirma-la al DOGC) i veda biològica de 2 mesos. Si en captures un fora de mida o en veda, allibera'l amb cura.</div>`:''}
-    ${S.gearMismatch ? `<div class="note">${state.species==='corball' ? 'L\'ham 4-6 amb cuc és subòptim per a exemplars grans: millor calamar o tros de peix amb ham fort.' : 'Dents esmolades: talla el fil amb facilitat. Posa un tram de filferro o de monofilament gruixut (0,60-0,80 mm) com a baix de línia.'}</div>`:''}
+    ${S.gearNote ? `<div class="note">${esc(S.gearNote)}</div>`:''}
     ${S.speculative ? `<div class="note">Espècie amb poca literatura científica específica per al Mediterrani: el model es basa en comportament general de la família i en l'observació de camp, no en dades experimentals locals.</div>`:''}
     ${sp.note?`<div class="note">${esc(sp.note)}</div>`:''}
 
@@ -1065,13 +1087,13 @@ function setAddMode(on){
 }
 
 /* --- modal de punt --- */
-let smBearing=135, smBottom='mixed', smFeat={posidonia:false,channel:false}, smLat=0, smLon=0;
+let smBearing=135, smBottom='mixed', smFeat={posidonia:false,channel:false,harborLight:false}, smLat=0, smLon=0;
 function openSpotModal(spot, lat, lon){
   state.editing = spot || null;
   smLat = spot? spot.lat : lat; smLon = spot? spot.lon : lon;
   smBottom = spot? spot.bottom : 'mixed';
   smBearing = spot? spot.bearing : suggestBearing(smLat, smLon);
-  smFeat = {posidonia: !!spot?.posidonia, channel: !!spot?.channel};
+  smFeat = {posidonia: !!spot?.posidonia, channel: !!spot?.channel, harborLight: !!spot?.harborLight};
   $('#smTitle').textContent = spot? 'Edita el punt' : 'Punt nou';
   $('#smCoords').textContent = `${smLat.toFixed(4)}, ${smLon.toFixed(4)}`;
   $('#smName').value = spot? spot.name : '';
@@ -1180,10 +1202,11 @@ async function saveSpot(){
   const name=$('#smName').value.trim() || 'Punt sense nom';
   if(state.editing){
     Object.assign(state.editing,{name, bearing:smBearing, bottom:smBottom,
-      posidonia:smFeat.posidonia, channel:smFeat.channel});
+      posidonia:smFeat.posidonia, channel:smFeat.channel, harborLight:smFeat.harborLight});
   }else{
     const sp={id:'u'+Date.now().toString(36), name, area:'', lat:smLat, lon:smLon,
-      bearing:smBearing, bottom:smBottom, posidonia:smFeat.posidonia, channel:smFeat.channel, custom:true};
+      bearing:smBearing, bottom:smBottom, posidonia:smFeat.posidonia, channel:smFeat.channel,
+      harborLight:smFeat.harborLight, custom:true};
     state.spots.push(sp); state.sel=sp.id;
   }
   $('#spotModal').classList.remove('show');
@@ -1202,8 +1225,8 @@ async function deleteSpot(){
   switchTab('rank');
 }
 async function persistCustom(){
-  const custom=state.spots.filter(s=>s.custom).map(({id,name,lat,lon,bearing,bottom,posidonia,channel})=>
-    ({id,name,lat,lon,bearing,bottom,posidonia,channel}));
+  const custom=state.spots.filter(s=>s.custom).map(({id,name,lat,lon,bearing,bottom,posidonia,channel,harborLight})=>
+    ({id,name,lat,lon,bearing,bottom,posidonia,channel,harborLight}));
   await saveStore('spots:custom', custom);
 }
 
