@@ -231,7 +231,6 @@ input[type=text],select{
 .leaflet-control-attribution a{color:var(--steel)!important}
 .leaflet-bar a{background:var(--panel)!important;color:var(--foam)!important;border-color:var(--line)!important}
 .tiles-sat{filter:brightness(.82) saturate(.92) contrast(1.04)}
-.tiles-nautic{filter:brightness(.58) saturate(1.25) contrast(1.08)}
 .tiles-street{filter:invert(1) hue-rotate(185deg) brightness(.92) contrast(.88) saturate(.62)}
 .leaflet-control-layers{
   background:var(--deep)!important;border:1px solid var(--line)!important;
@@ -788,16 +787,8 @@ function initMap(){
   const carrers=L.tileLayer(ESRI+'World_Street_Map/MapServer/tile/{z}/{y}/{x}',
     {attribution:credit, maxNativeZoom:18, maxZoom:19, className:'tiles-street'});
 
-  // Batimetria: cobertura limitada, per això el zoom natiu es queda baix i s'escala
-  const nautic=L.layerGroup([
-    L.tileLayer(ESRI+'Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
-      {attribution:credit, maxNativeZoom:11, maxZoom:19, className:'tiles-nautic'}),
-    L.tileLayer(ESRI+'Ocean/World_Ocean_Reference/MapServer/tile/{z}/{y}/{x}',
-      {maxNativeZoom:11, maxZoom:19, className:'tiles-nautic', opacity:.8})
-  ]);
-
   sat.addTo(map);
-  L.control.layers({'Satèl·lit':sat,'Carrers':carrers,'Batimetria':nautic},null,{position:'topright'}).addTo(map);
+  L.control.layers({'Satèl·lit':sat,'Carrers':carrers},null,{position:'topright'}).addTo(map);
 
   let tileFails=0;
   [sat,carrers].forEach(l=>l.on('tileerror',()=>{
