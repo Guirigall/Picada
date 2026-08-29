@@ -312,8 +312,9 @@ input[type=text],select{
     <p class="sub" id="smCoords">—</p>
     <div id="smParkNote" class="note" style="display:none"></div>
     <div style="font-size:11px;color:var(--steel);margin-top:-4px;margin-bottom:10px">
-      Comprovació automàtica de zones protegides via OpenStreetMap. Verifica sempre al mapa oficial
-      <a href="https://agricultura.gencat.cat/ca/ambits/pesca/pesca-recreativa/mapa-onpescar/" target="_blank" rel="noopener">OnPescar</a>.
+      Comprovació automàtica de parcs naturals i zones portuàries via OpenStreetMap.
+      El mapa oficial <a href="https://agricultura.gencat.cat/ca/ambits/pesca/pesca-recreativa/mapa-onpescar/" target="_blank" rel="noopener">OnPescar</a>
+      no té API pública (només app CarryMap): verifica-hi sempre els plans d'usos estivals de platges, que aquí no es poden comprovar.
     </div>
 
     <label for="smName">Nom</label>
@@ -1103,10 +1104,14 @@ function setParkNoteUI(text, pending){
 }
 
 /* Consulta OpenStreetMap (Overpass) per saber si un punt cau dins d'un parc
-   natural, reserva marina o espai protegit similar (Catalunya i Balears inclosos,
-   ja que la font és mundial). Retorna:
-   - un string amb el nom si es troba una zona protegida
-   - '' (buit) si la consulta ha anat bé i NO hi ha cap zona protegida
+   natural, reserva marina, o zona portuària (Catalunya i Balears inclosos,
+   ja que la font és mundial). Aquestes dues categories són, segons la pròpia
+   Generalitat, dues de les tres fonts amb què es construeix el mapa OnPescar
+   (la tercera, els plans d'usos estivals per municipi, no és una dada oberta
+   consultable). OnPescar en si mateix no té cap API pública: es distribueix
+   només com a capa tancada per a l'app CarryMap. Retorna:
+   - un string amb el missatge si es troba parc i/o port
+   - '' (buit) si la consulta ha anat bé i no hi ha cap coincidència
    - null si la consulta ha fallat i no es pot saber (per exemple sense xarxa) */
 async function checkProtectedArea(lat, lon){
   const q = `[out:json][timeout:15];is_in(${lat},${lon})->.a;.a out tags;`;
@@ -1115,15 +1120,23 @@ async function checkProtectedArea(lat, lon){
     const res = await fetch(url);
     if(!res.ok) return null;
     const data = await res.json();
-    const hits = (data.elements||[]).filter(el=>{
+    const els = data.elements||[];
+
+    const parks = [...new Set(els.filter(el=>{
       const t=el.tags||{};
-      if(!t.name) return false;
-      return t.boundary==='protected_area' || t.boundary==='national_park'
-          || t.leisure==='nature_reserve' || !!t.protect_class;
-    });
-    if(!hits.length) return '';
-    const names=[...new Set(hits.map(h=>h.tags.name))].slice(0,2);
-    return names.join(' / ');
+      return t.name && (t.boundary==='protected_area' || t.boundary==='national_park'
+          || t.leisure==='nature_reserve' || !!t.protect_class);
+    }).map(el=>el.tags.name))].slice(0,2);
+
+    const ports = [...new Set(els.filter(el=>{
+      const t=el.tags||{};
+      return t.name && (t.landuse==='harbour' || t.leisure==='marina' || t.harbour==='yes');
+    }).map(el=>el.tags.name))].slice(0,2);
+
+    const msgs=[];
+    if(parks.length) msgs.push(`Aquest punt sembla caure dins de ${parks.join(' / ')}. Revisa la zonificació i la normativa de pesca abans d'anar-hi.`);
+    if(ports.length) msgs.push(`Aquest punt sembla caure dins d'una zona portuària (${ports.join(' / ')}). La pesca recreativa no sol estar permesa dins la zona de servei dels ports, tret de trams habilitats expressament.`);
+    return msgs.length ? msgs.join(' ') : '';
   }catch(e){ return null; }
 }
 
@@ -1146,7 +1159,7 @@ function openSpotModal(spot, lat, lon){
     // si mentrestant s'ha tancat el modal o canviat de punt, no facis res
     if(smLat!==lookupLat || smLon!==lookupLon) return;
     if(result===null){ setParkNoteUI(smParkNote); return; } // no s'ha pogut comprovar: conserva el que ja hi hagués
-    smParkNote = result ? `Aquest punt sembla caure dins de ${result}. Revisa la zonificació i la normativa de pesca abans d'anar-hi.` : null;
+    smParkNote = result || null;
     setParkNoteUI(smParkNote);
   });
 }
