@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Marejol · pesca des de costa al Mediterrani</title>
+<title>Picada · pesca des de costa al Mediterrani</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#08181F">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Marejol">
+<meta name="apple-mobile-web-app-title" content="Picada">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -259,7 +259,7 @@ input[type=text],select{
 <div class="app">
   <header>
     <div class="brand">
-      <h1>Marejol<span>.</span></h1>
+      <h1>Picada<span>.</span></h1>
       <p>Pesca des de costa · Mediterrani</p>
     </div>
     <div class="species" role="group" aria-label="Espècie objectiu">
@@ -355,7 +355,7 @@ input[type=text],select{
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 /* =======================================================================
-   MAREJOL — puntuació de pesca des de costa al Mediterrani occidental
+   PICADA — puntuació de pesca des de costa al Mediterrani occidental
    Model: vent (onshore/offshore) + energia i organització de l'onatge +
    remoguda/terbolesa + finestra de llum + finestres de transició +
    tendència baromètrica + idoneïtat tèrmica + (marginal) lluna.
@@ -483,7 +483,7 @@ const SPECIES = {
   calamar: {
     label:'Calamar', latin:'Loligo vulgaris',
     speculative:true, moonDark:true,
-    gearNote:'No es pesca amb ham i cuc: cal popera (esquer amb corona de punxes) i canya lleugera. És una tècnica diferent de la resta de l\'app.',
+    gearNote:'No es pesca amb ham i cuc: cal potera o jibionera (senyol amb corona de punxes) i canya lleugera. És una tècnica diferent de la resta de l\'app.',
     hs:[0.05,0.35], tp:[3,6],           // vol mar gairebé plana per treballar la potera i per seguretat nocturna
     stir:0.15, stirW:0.16,             // caçador visual: aigua ben clara
     sst:{dead:9, lo:12, hi:19, top:23},
@@ -492,7 +492,7 @@ const SPECIES = {
     weights:{wave:.22, wind:.10, stir:.16, light:.20, trans:.06, press:.04, sst:.06, moon:.16},
     bottom:{sand:1.0, mixed:1.0, rock:0.80}, posidonia:1.05, channel:1.0,
     harborBonus:{yes:1.5, no:0.55},
-    tip:'De nit, a la llum d\'un moll o far de port sobre aigua neta. Amb lluna nova es concentren a la llum; amb lluna plena es dispersen i costen més de localitzar.'
+    tip:'De nit, a la llum d\'un moll o far de port sobre aigua neta. Amb lluna fosca es concentren a la llum; amb lluna plena es dispersen i costen més de localitzar.'
   }
 };
 
@@ -958,7 +958,7 @@ function renderDetail(){
        :'Vent paral·lel a la costa: genera deriva litoral i moviment lateral.'}
     </div>
 
-    <h3 class="sec">Valoracions</h3>
+    <h3 class="sec">Què hi pesa</h3>
     ${factorRow('Onatge (alçada i període)', p.fWave, S.weights.wave)}
     ${factorRow('Vent respecte la costa', p.fWind, S.weights.wind)}
     ${factorRow('Remoguda i terbolesa', p.fStir, S.weights.stir)}

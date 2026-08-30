@@ -1,6 +1,6 @@
 {
-  "name": "Marejol · pesca des de costa",
-  "short_name": "Marejol",
+  "name": "Picada · pesca des de costa",
+  "short_name": "Picada",
   "description": "Puntuació de pesca des de costa al Mediterrani, per espècie i per punt.",
   "start_url": "./index.html",
   "scope": "./",

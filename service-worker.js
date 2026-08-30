@@ -1,10 +1,10 @@
-// Service worker de Marejol.
+// Service worker de Picada.
 // Objectiu únic: que la carcassa de l'app (l'HTML, el manifest i les icones)
 // carregui encara que no hi hagi cobertura. Les dades de previsió (Open-Meteo)
 // i les tessel·les del mapa (Esri) sempre necessiten xarxa: si no n'hi ha,
 // l'app ja té el seu propi mode de demostració amb dades simulades.
 
-const CACHE = 'marejol-v1';
+const CACHE = 'picada-v1';
 const ASSETS = [
   './',
   './index.html',
