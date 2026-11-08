@@ -1,0 +1,27 @@
+{
+  "repository": "Picada",
+  "sourceCommit": "6df44fc91f9f954641b07d5e08ed38465bd58ea1",
+  "url": "https://guirigall.github.io/Picada/",
+  "screenshots": [
+    {
+      "name": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 1050
+      },
+      "title": "Picada · pesca des de costa al Mediterrani",
+      "pageErrors": []
+    },
+    {
+      "name": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "title": "Picada · pesca des de costa al Mediterrani",
+      "pageErrors": []
+    }
+  ],
+  "publishedStatus": null,
+  "publishedError": "Cannot read properties of undefined (reading 'get')"
+}
