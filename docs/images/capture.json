@@ -1,6 +1,6 @@
 {
   "repository": "Picada",
-  "sourceCommit": "6df44fc91f9f954641b07d5e08ed38465bd58ea1",
+  "sourceCommit": "83566a0f2ee8543b2e518de241820f56544ee926",
   "url": "https://guirigall.github.io/Picada/",
   "screenshots": [
     {
@@ -22,6 +22,5 @@
       "pageErrors": []
     }
   ],
-  "publishedStatus": null,
-  "publishedError": "Cannot read properties of undefined (reading 'get')"
+  "publishedStatus": 200
 }
